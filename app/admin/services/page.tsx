@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { formatCurrency } from '@/lib/utils/formatters';
-import { Flower2, Plus, Edit2, Clock, Loader2 } from 'lucide-react';
+import { Flower2, Plus, Edit2, Clock, Loader2, Sparkles } from 'lucide-react';
 
 export default function AdminServicesPage() {
   const [services, setServices] = useState<any[]>([]);
@@ -22,10 +22,10 @@ export default function AdminServicesPage() {
     fetchServices();
   }, []);
 
-  async function fetchServices() {
+  async function fetchServices(seed: boolean = false) {
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/services');
+      const res = await fetch(`/api/admin/services${seed ? '?seed=true' : ''}`);
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'ไม่สามารถโหลดข้อมูลได้');
       setServices(json.data || []);
@@ -99,13 +99,22 @@ export default function AdminServicesPage() {
           <h1 className="text-xl font-black text-white">บริการนวดสปาและราคา (Spa Services)</h1>
           <p className="text-xs text-slate-400">เพิ่ม/แก้ไข รายการบริการสปา อัตราค่าบริการ และเวลาเปิด/ปิดจอง</p>
         </div>
-        <button
-          onClick={openCreateModal}
-          className="px-3.5 py-2 bg-spa-600 hover:bg-spa-500 text-white font-bold rounded-xl text-xs flex items-center space-x-1 shadow-lg"
-        >
-          <Plus className="w-4 h-4" />
-          <span>เพิ่มบริการนวดสปาใหม่</span>
-        </button>
+        <div className="flex space-x-2">
+          <button
+            onClick={() => fetchServices(true)}
+            className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-spa-400 font-bold rounded-xl text-xs flex items-center space-x-1 border border-slate-700 shadow-md"
+          >
+            <Sparkles className="w-4 h-4 text-spa-gold" />
+            <span>ดึงบริการตั้งต้น 6 รายการ</span>
+          </button>
+          <button
+            onClick={openCreateModal}
+            className="px-3.5 py-2 bg-spa-600 hover:bg-spa-500 text-white font-bold rounded-xl text-xs flex items-center space-x-1 shadow-lg"
+          >
+            <Plus className="w-4 h-4" />
+            <span>เพิ่มบริการนวดสปาใหม่</span>
+          </button>
+        </div>
       </div>
 
       {loading ? (
