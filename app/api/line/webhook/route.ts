@@ -123,6 +123,26 @@ export async function POST(req: NextRequest) {
               }
             ]
           });
+        } else if (text.includes('โปรโมชั่น') || text.includes('ส่วนลด') || text.includes('สิทธิประโยชน์')) {
+          const { data: services } = await supabaseAdmin
+            .from('services')
+            .select('*')
+            .eq('status', true)
+            .limit(3);
+
+          const serviceSummary = services && services.length > 0 
+            ? services.map(s => `• ${s.name} เพียง ${formatCurrency(s.price)}`).join('\n')
+            : '• แพ็กเกจนวดสปาผ่อนคลายราคาพิเศษประจำเดือน';
+
+          await lineClient.replyMessage({
+            replyToken,
+            messages: [
+              {
+                type: 'text',
+                text: `🎁 สิทธิประโยชน์และโปรโมชั่นพิเศษประจำเดือน!\n\n${serviceSummary}\n\nกดจองคิวนวดสปาเพื่อรับสิทธิ์ส่วนลดได้ทันทีที่:\n👉 ${liffUrl}`
+              }
+            ]
+          });
         }
       }
     }
