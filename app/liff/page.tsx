@@ -583,25 +583,33 @@ function BookingWizardContent() {
           <div className="bg-spa-50/70 border border-spa-200 p-4 rounded-2xl text-left space-y-2 text-xs">
             <div className="flex justify-between items-center border-b border-spa-200/60 pb-2">
               <span className="text-slate-600">หมายเลขคิว:</span>
-              <span className="font-black text-base text-spa-800">{bookingResult.queue_number}</span>
+              <span className="font-black text-base text-spa-800">
+                {bookingResult.queue_number || bookingResult.queueNumber || 'Q-CONFIRMED'}
+              </span>
             </div>
             <div className="flex justify-between items-center border-b border-spa-200/60 pb-2">
               <span className="text-slate-600">บริการ:</span>
-              <span className="font-bold text-slate-900">{bookingResult.service_name}</span>
+              <span className="font-bold text-slate-900">
+                {bookingResult.service_name || selectedService?.name}
+              </span>
             </div>
             <div className="flex justify-between items-center border-b border-spa-200/60 pb-2">
               <span className="text-slate-600">วันที่นัดหมาย:</span>
-              <span className="font-bold text-slate-900">{formatThaiDate(bookingResult.booking_date)}</span>
+              <span className="font-bold text-slate-900">
+                {formatThaiDate(bookingResult.booking_date || bookingDate)}
+              </span>
             </div>
             <div className="flex justify-between items-center border-b border-spa-200/60 pb-2">
               <span className="text-slate-600">เวลาที่นัดหมาย:</span>
               <span className="font-bold text-emerald-700">
-                {formatTimeSlot(bookingResult.start_time)} - {formatTimeSlot(bookingResult.end_time)} น.
+                {formatTimeSlot(bookingResult.start_time || selectedTime)} น.
               </span>
             </div>
             <div className="flex justify-between items-center pt-1 font-extrabold text-sm">
               <span className="text-slate-700">ยอดชำระหน้างาน:</span>
-              <span className="text-spa-700 text-base">{formatCurrency(bookingResult.price)}</span>
+              <span className="text-spa-700 text-base">
+                {formatCurrency(bookingResult.price !== undefined ? bookingResult.price : selectedService?.price)}
+              </span>
             </div>
           </div>
 

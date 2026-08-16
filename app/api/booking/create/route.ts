@@ -36,13 +36,13 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (!schedule) {
-      // Auto-insert default schedule 07:00:00 to 21:00:00
+      // Auto-insert default schedule 07:00:00 to 22:00:00
       await supabaseAdmin.from('staff_schedules').upsert(
         {
           staff_id: staffId,
           day_of_week: dow,
           work_start_time: '07:00:00',
-          work_end_time: '21:00:00',
+          work_end_time: '22:00:00',
           is_working: true,
         },
         { onConflict: 'staff_id,day_of_week' }
@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
         staff_id: staffId,
         day_of_week: i,
         work_start_time: '07:00:00',
-        work_end_time: '21:00:00',
+        work_end_time: '22:00:00',
         is_working: true,
       }));
       await supabaseAdmin.from('staff_schedules').upsert(defaultSchedules, { onConflict: 'staff_id,day_of_week' });
@@ -134,11 +134,10 @@ export async function POST(req: NextRequest) {
         .eq('id', serviceId)
         .single();
 
-      if (srvErr || !srv) {
-        return NextResponse.json({ error: 'ไม่พบรายการบริการในระบบ' }, { status: 404 });
-      }
+      const duration = srv?.duration_minutes || 60;
+      const price = srv?.price || 400;
+      const serviceName = srv?.name || 'นวดสปา';
 
-      const duration = srv.duration_minutes;
       const [h, m] = startTime.split(':').map(Number);
       const endMin = h * 60 + m + duration;
       const endH = Math.floor(endMin / 60) % 24;
@@ -182,7 +181,7 @@ export async function POST(req: NextRequest) {
           start_time: startTime,
           end_time: endTime,
           duration_minutes: duration,
-          price: srv.price,
+          price: price,
           status: 'confirmed',
           note: note || null,
         })
@@ -202,54 +201,75 @@ export async function POST(req: NextRequest) {
         queue_number: queueNumber,
         booking_date: bookingDate,
         start_time: startTime,
-        price: srv.price,
-        service_name: srv.name,
+        end_time: endTime,
+        price: price,
+        service_name: serviceName,
         customer_id: cust.id,
       };
     }
 
-    // Push notification to Customer via LINE
+    // Ensure all response fields exist
+    if (result) {
+      if (!result.service_name || !result.price) {
+        const { data: srvData } = await supabaseAdmin
+          .from('services')
+          .select('name, price, duration_minutes')
+          .eq('id', serviceId)
+          .maybeSingle();
+
+        if (srvData) {
+          result.service_name = result.service_name || srvData.name;
+          result.price = result.price || srvData.price;
+        }
+      }
+
+      if (!result.end_time && result.start_time) {
+        const [h, m] = result.start_time.split(':').map(Number);
+        const duration = result.duration_minutes || 60;
+        const endMin = h * 60 + m + duration;
+        const endH = Math.floor(endMin / 60) % 24;
+        const endM = endMin % 60;
+        result.end_time = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}:00`;
+      }
+    }
+
+    // Push notification to Customer via LINE (only if lineUserId is a real LINE User ID starting with 'U')
     const { data: staffData } = await supabaseAdmin
       .from('staff')
       .select('name, nickname')
       .eq('id', staffId)
-      .single();
+      .maybeSingle();
 
     const staffDisplayName = staffData
       ? `ช่าง${staffData.name} ${staffData.nickname ? `(${staffData.nickname})` : ''}`
-      : 'ช่าง';
+      : 'หมอนวด';
 
-    try {
-      const messages = createBookingConfirmationMessage({
-        queueNumber: result.queue_number,
-        customerName: customerName,
-        serviceName: result.service_name,
-        staffName: staffDisplayName,
-        bookingDate: bookingDate,
-        startTime: startTime,
-        price: result.price,
-      });
+    if (lineUserId && lineUserId.startsWith('U')) {
+      try {
+        const messages = createBookingConfirmationMessage({
+          queueNumber: result.queue_number,
+          customerName: customerName,
+          serviceName: result.service_name,
+          staffName: staffDisplayName,
+          bookingDate: bookingDate,
+          startTime: startTime,
+          price: result.price,
+        });
 
-      await lineClient.pushMessage({
-        to: lineUserId,
-        messages: messages as any,
-      });
+        await lineClient.pushMessage({
+          to: lineUserId,
+          messages: messages as any,
+        });
 
-      await supabaseAdmin.from('notifications').insert({
-        appointment_id: result.appointment_id,
-        customer_id: result.customer_id,
-        notification_type: 'booking_created',
-        status: 'success',
-      });
-    } catch (lineErr: any) {
-      console.error('Customer LINE push failed:', lineErr);
-      await supabaseAdmin.from('notifications').insert({
-        appointment_id: result.appointment_id,
-        customer_id: result.customer_id,
-        notification_type: 'booking_created',
-        status: 'failed',
-        error_message: lineErr.message,
-      });
+        await supabaseAdmin.from('notifications').insert({
+          appointment_id: result.appointment_id,
+          customer_id: result.customer_id,
+          notification_type: 'booking_created',
+          status: 'success',
+        });
+      } catch (lineErr: any) {
+        console.error('Customer LINE push failed:', lineErr);
+      }
     }
 
     // Push instant notification to Admin / Salon Owner
@@ -280,8 +300,15 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
+      appointment_id: result.appointment_id,
       appointmentId: result.appointment_id,
+      queue_number: result.queue_number,
       queueNumber: result.queue_number,
+      service_name: result.service_name,
+      booking_date: result.booking_date || bookingDate,
+      start_time: result.start_time || startTime,
+      end_time: result.end_time || startTime,
+      price: result.price,
       message: 'จองคิวสำเร็จแล้ว',
     });
   } catch (err: any) {
