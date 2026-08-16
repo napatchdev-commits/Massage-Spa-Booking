@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { formatCurrency } from '@/lib/utils/formatters';
-import { Flower2, Plus, Edit2, Clock, Loader2, Sparkles } from 'lucide-react';
+import { Flower2, Plus, Edit2, Clock, Loader2, Sparkles, Trash2 } from 'lucide-react';
 
 export default function AdminServicesPage() {
   const [services, setServices] = useState<any[]>([]);
@@ -29,7 +29,7 @@ export default function AdminServicesPage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'ไม่สามารถโหลดข้อมูลได้');
       setServices(json.data || []);
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
@@ -57,38 +57,44 @@ export default function AdminServicesPage() {
   }
 
   async function handleSaveService() {
-    if (!name.trim() || !price || !duration) {
-      alert('กรุณากรอกข้อมูลบริการสปา ราคา และระยะเวลาให้ครบถ้วน');
+    if (!name.trim() || !price) {
+      alert('กรุณากรอกข้อมูลให้ครบถ้วน');
       return;
     }
-
     setSaving(true);
     try {
-      const payload = {
-        id: editingSrv?.id,
-        name,
-        description,
-        price: parseFloat(price),
-        duration_minutes: parseInt(duration),
-        status,
-      };
-
       const method = editingSrv ? 'PUT' : 'POST';
+      const body = editingSrv
+        ? { id: editingSrv.id, name, description, price, duration_minutes: duration, status }
+        : { name, description, price, duration_minutes: duration, status };
+
       const res = await fetch('/api/admin/services', {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(body),
       });
 
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'ไม่สามารถบันทึกข้อมูลบริการได้');
+      if (!res.ok) throw new Error(json.error || 'ไม่สามารถบันทึกข้อมูลได้');
 
       setShowModal(false);
       fetchServices();
     } catch (err: any) {
-      alert(err.message || 'ไม่สามารถบันทึกข้อมูลบริการได้');
+      alert(err.message || 'เกิดข้อผิดพลาดในการบันทึกบริการ');
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleDeleteService(id: string, srvName: string) {
+    if (!confirm(`คุณต้องการลบบริการ "${srvName}" ใช่หรือไม่?`)) return;
+    try {
+      const res = await fetch(`/api/admin/services?id=${id}`, { method: 'DELETE' });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'ไม่สามารถลบบริการได้');
+      fetchServices();
+    } catch (err: any) {
+      alert(err.message || 'เกิดข้อผิดพลาดในการลบบริการ');
     }
   }
 
@@ -97,7 +103,7 @@ export default function AdminServicesPage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-xl font-black text-white">บริการนวดสปาและราคา (Spa Services)</h1>
-          <p className="text-xs text-slate-400">เพิ่ม/แก้ไข รายการบริการสปา อัตราค่าบริการ และเวลาเปิด/ปิดจอง</p>
+          <p className="text-xs text-slate-400">เพิ่ม/แก้ไข/ลบ รายการบริการสปา อัตราค่าบริการ และเวลาเปิด/ปิดจอง</p>
         </div>
         <div className="flex space-x-2">
           <button
@@ -124,7 +130,7 @@ export default function AdminServicesPage() {
         </div>
       ) : services.length === 0 ? (
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-12 text-center text-xs text-slate-500">
-          ยังไม่มีรายการบริการในระบบ กรุณากดปุ่ม "เพิ่มบริการนวดสปาใหม่" ด้านบน
+          ยังไม่มีรายการบริการในระบบ กรุณากดปุ่ม "เพิ่มบริการนวดสปาใหม่" หรือ "ดึงบริการตั้งต้น 6 รายการ" ด้านบน
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -163,10 +169,17 @@ export default function AdminServicesPage() {
                 </div>
               </div>
 
-              <div className="pt-3 border-t border-slate-800 flex justify-end">
+              <div className="pt-3 border-t border-slate-800 flex justify-between items-center">
+                <button
+                  onClick={() => handleDeleteService(srv.id, srv.name)}
+                  className="px-2.5 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 font-bold rounded-xl text-xs flex items-center space-x-1 border border-rose-500/30 transition-all"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                  <span>ลบ</span>
+                </button>
                 <button
                   onClick={() => openEditModal(srv)}
-                  className="px-3 py-1.5 bg-slate-950 hover:bg-slate-800 text-slate-200 font-bold rounded-xl text-xs flex items-center space-x-1"
+                  className="px-3 py-1.5 bg-slate-950 hover:bg-slate-800 text-slate-200 font-bold rounded-xl text-xs flex items-center space-x-1 border border-slate-800"
                 >
                   <Edit2 className="w-3.5 h-3.5 text-spa-400" />
                   <span>แก้ไขบริการ</span>
@@ -190,76 +203,78 @@ export default function AdminServicesPage() {
                 <label className="block text-slate-300 font-semibold mb-1">ชื่อบริการสปา <span className="text-rose-400">*</span></label>
                 <input
                   type="text"
-                  placeholder="เช่น นวดไทยโบราณ / นวดอโรม่าน้ำมัน"
+                  placeholder="เช่น นวดแผนไทย, นวดเท้า..."
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none"
+                  className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-spa-500"
                 />
               </div>
 
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">รายละเอียดบริการ</label>
+                <label className="block text-slate-300 font-semibold mb-1">คำอธิบายบริการ</label>
                 <textarea
-                  placeholder="อธิบายรายละเอียดบริการ เช่น ช่วยคลายกล้ามเนื้อสลายความเมื่อยล้า"
+                  placeholder="รายละเอียด เช่น ช่วยผ่อนคลายกล้ามเนื้อ..."
                   rows={2}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none"
+                  className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-spa-500"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-slate-300 font-semibold mb-1">ราคา (บาท) <span className="text-rose-400">*</span></label>
                   <input
                     type="number"
-                    placeholder="550"
+                    placeholder="400"
                     value={price}
                     onChange={(e) => setPrice(e.target.value)}
-                    className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none font-bold"
+                    className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-spa-500"
                   />
                 </div>
-
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">ระยะเวลา (นาที) <span className="text-rose-400">*</span></label>
-                  <input
-                    type="number"
-                    step="15"
-                    placeholder="60"
+                  <label className="block text-slate-300 font-semibold mb-1">ระยะเวลา (นาที)</label>
+                  <select
                     value={duration}
                     onChange={(e) => setDuration(e.target.value)}
-                    className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none font-bold"
-                  />
+                    className="w-full p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white outline-none focus:border-spa-500"
+                  >
+                    <option value="30">30 นาที</option>
+                    <option value="45">45 นาที</option>
+                    <option value="60">60 นาที</option>
+                    <option value="90">90 นาที</option>
+                    <option value="120">120 นาที</option>
+                  </select>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between pt-2">
-                <span className="text-slate-300 font-semibold">สถานะเปิดบริการ:</span>
-                <button
-                  type="button"
-                  onClick={() => setStatus(!status)}
-                  className={`px-3 py-1.5 rounded-xl font-bold ${
-                    status ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'
-                  }`}
-                >
-                  {status ? 'เปิดบริการ' : 'ปิดบริการ'}
-                </button>
+              <div className="flex items-center space-x-2 pt-2">
+                <input
+                  type="checkbox"
+                  id="status"
+                  checked={status}
+                  onChange={(e) => setStatus(e.target.checked)}
+                  className="w-4 h-4 accent-spa-500 rounded"
+                />
+                <label htmlFor="status" className="text-slate-300 font-semibold cursor-pointer">
+                  เปิดให้บริการจอง
+                </label>
               </div>
             </div>
 
-            <div className="flex space-x-2 pt-2 text-xs font-bold">
+            <div className="flex justify-end space-x-2 pt-2">
               <button
                 onClick={() => setShowModal(false)}
-                className="flex-1 py-2.5 bg-slate-800 text-slate-300 rounded-xl"
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs"
               >
                 ยกเลิก
               </button>
               <button
                 disabled={saving}
                 onClick={handleSaveService}
-                className="flex-1 py-2.5 bg-spa-600 text-white rounded-xl shadow-md"
+                className="px-4 py-2 bg-spa-600 hover:bg-spa-500 disabled:opacity-50 text-white font-bold rounded-xl text-xs shadow-lg flex items-center space-x-1"
               >
-                {saving ? 'กำลังบันทึก...' : 'บันทึกบริการ'}
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>บันทึกข้อมูล</span>}
               </button>
             </div>
           </div>

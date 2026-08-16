@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { formatCurrency, getStatusConfig } from '@/lib/utils/formatters';
 import { formatThaiDate, formatTimeSlot } from '@/lib/utils/time';
-import { Search, History, Loader2, MessageSquare } from 'lucide-react';
+import { Search, History, Loader2, MessageSquare, Trash2 } from 'lucide-react';
 
 export default function AdminCustomersPage() {
   const supabase = createClient();
@@ -24,17 +24,26 @@ export default function AdminCustomersPage() {
   async function fetchCustomers() {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('customers')
-        .select('*, appointments(id, price, status)')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setCustomers(data || []);
+      const res = await fetch('/api/admin/customers');
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'ไม่สามารถโหลดข้อมูลได้');
+      setCustomers(json.data || []);
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleDeleteCustomer(id: string, name: string) {
+    if (!confirm(`คุณต้องการลบข้อมูลลูกค้า "${name}" และประวัติการจองทั้งหมดใช่หรือไม่?`)) return;
+    try {
+      const res = await fetch(`/api/admin/customers?id=${id}`, { method: 'DELETE' });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'ไม่สามารถลบข้อมูลลูกค้าได้');
+      fetchCustomers();
+    } catch (err: any) {
+      alert(err.message || 'เกิดข้อผิดพลาดในการลบข้อมูลลูกค้า');
     }
   }
 
@@ -67,7 +76,7 @@ export default function AdminCustomersPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-black text-white">จัดการข้อมูลลูกค้าสปา (Customers)</h1>
-        <p className="text-xs text-slate-400">รายชื่อลูกค้า การเชื่อมต่อ LINE User ID และประวัติการจองคิวนวดสปา</p>
+        <p className="text-xs text-slate-400">รายชื่อลูกค้า การเชื่อมต่อ LINE User ID ประวัติการจองคิวนวดสปา และการลบข้อมูล</p>
       </div>
 
       {/* Search Bar */}
@@ -106,7 +115,7 @@ export default function AdminCustomersPage() {
                   <th className="p-3">อีเมล</th>
                   <th className="p-3">จำนวนครั้งที่จอง</th>
                   <th className="p-3">ยอดรวมการใช้บริการ</th>
-                  <th className="p-3 text-right">ประวัติ</th>
+                  <th className="p-3 text-right">การจัดการ</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
@@ -130,13 +139,22 @@ export default function AdminCustomersPage() {
                       <td className="p-3 font-bold text-spa-400">{totalCount} ครั้ง</td>
                       <td className="p-3 font-extrabold text-emerald-400">{formatCurrency(totalSpent)}</td>
                       <td className="p-3 text-right">
-                        <button
-                          onClick={() => openHistoryModal(cust)}
-                          className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-lg text-[11px] flex items-center space-x-1 ml-auto"
-                        >
-                          <History className="w-3 h-3" />
-                          <span>ดูประวัติ</span>
-                        </button>
+                        <div className="flex items-center justify-end space-x-2">
+                          <button
+                            onClick={() => openHistoryModal(cust)}
+                            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-lg text-[11px] flex items-center space-x-1"
+                          >
+                            <History className="w-3 h-3" />
+                            <span>ดูประวัติ</span>
+                          </button>
+                          <button
+                            onClick={() => handleDeleteCustomer(cust.id, cust.name)}
+                            className="px-2 py-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 font-semibold rounded-lg text-[11px] flex items-center space-x-1 border border-rose-500/30"
+                          >
+                            <Trash2 className="w-3 h-3 text-rose-400" />
+                            <span>ลบ</span>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );

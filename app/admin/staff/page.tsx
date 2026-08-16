@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { UserCheck, Plus, Edit2, Clock, Trash2, Loader2 } from 'lucide-react';
+import { UserCheck, Plus, Edit2, Clock, Loader2, Calendar, AlertCircle, Trash2 } from 'lucide-react';
 
 export default function AdminStaffPage() {
   const supabase = createClient();
@@ -92,6 +92,18 @@ export default function AdminStaffPage() {
       alert(err.message || 'ไม่สามารถบันทึกข้อมูลเทอราพิสได้');
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleDeleteStaff(id: string, name: string) {
+    if (!confirm(`คุณต้องการลบข้อมูลเทอราพิส "${name}" ใช่หรือไม่?`)) return;
+    try {
+      const res = await fetch(`/api/admin/staff?id=${id}`, { method: 'DELETE' });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'ไม่สามารถลบข้อมูลเทอราพิสได้');
+      fetchStaff();
+    } catch (err: any) {
+      alert(err.message || 'เกิดข้อผิดพลาดในการลบข้อมูลเทอราพิส');
     }
   }
 
@@ -198,18 +210,25 @@ export default function AdminStaffPage() {
 
               <div className="flex space-x-2 pt-2 border-t border-slate-800 text-xs font-semibold">
                 <button
+                  onClick={() => handleDeleteStaff(st.id, st.name)}
+                  className="px-2.5 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-xl flex items-center justify-center space-x-1 border border-rose-500/30"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>ลบ</span>
+                </button>
+                <button
                   onClick={() => openEditModal(st)}
                   className="flex-1 py-2 bg-slate-950 hover:bg-slate-800 text-slate-200 rounded-xl flex items-center justify-center space-x-1"
                 >
                   <Edit2 className="w-3.5 h-3.5" />
-                  <span>แก้ไขข้อมูล</span>
+                  <span>แก้ไข</span>
                 </button>
                 <button
                   onClick={() => openScheduleManager(st)}
                   className="flex-1 py-2 bg-spa-700/30 hover:bg-spa-700/50 text-spa-300 rounded-xl flex items-center justify-center space-x-1 border border-spa-500/30"
                 >
                   <Clock className="w-3.5 h-3.5" />
-                  <span>ตารางงาน/วันหยุด</span>
+                  <span>ตารางงาน</span>
                 </button>
               </div>
             </div>

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { formatCurrency, getStatusConfig } from '@/lib/utils/formatters';
 import { formatThaiDate, formatTimeSlot } from '@/lib/utils/time';
-import { Clock, Search, Edit3, XCircle, CheckCircle2, Loader2, RefreshCw } from 'lucide-react';
+import { Clock, Search, Edit3, XCircle, CheckCircle2, Loader2, RefreshCw, Trash2 } from 'lucide-react';
 
 export default function AdminAppointmentsPage() {
   const supabase = createClient();
@@ -102,12 +102,24 @@ export default function AdminAppointmentsPage() {
     }
   }
 
+  async function handleDeleteAppointment(id: string, queueNum: string) {
+    if (!confirm(`คุณต้องการลบคิวนัดหมาย #${queueNum} ใช่หรือไม่?`)) return;
+    try {
+      const res = await fetch(`/api/admin/appointments?id=${id}`, { method: 'DELETE' });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'ไม่สามารถลบคิวนัดหมายได้');
+      fetchAppointments();
+    } catch (err: any) {
+      alert(err.message || 'เกิดข้อผิดพลาดในการลบคิวนัดหมาย');
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
         <div>
           <h1 className="text-xl font-black text-white">จัดการรายการคิวสปา (Spa Appointments)</h1>
-          <p className="text-xs text-slate-400">ค้นหา กรองข้อมูล เปลี่ยนสถานะ หรือแก้ไขเวลาจองคิวนวดสปา</p>
+          <p className="text-xs text-slate-400">ค้นหา กรองข้อมูล เปลี่ยนสถานะ แก้ไขเวลา หรือลบคิวนัดหมายสปา</p>
         </div>
         <button
           onClick={fetchAppointments}
@@ -218,15 +230,24 @@ export default function AdminAppointmentsPage() {
                         </span>
                       </td>
                       <td className="p-3 text-right">
-                        <button
-                          onClick={() => {
-                            setSelectedAppt(appt);
-                            setNewStatus(appt.status);
-                          }}
-                          className="px-2.5 py-1 bg-spa-700 hover:bg-spa-600 text-white font-semibold rounded-lg text-[11px]"
-                        >
-                          เปลี่ยนสถานะ
-                        </button>
+                        <div className="flex items-center justify-end space-x-2">
+                          <button
+                            onClick={() => {
+                              setSelectedAppt(appt);
+                              setNewStatus(appt.status);
+                            }}
+                            className="px-2.5 py-1 bg-spa-700 hover:bg-spa-600 text-white font-semibold rounded-lg text-[11px]"
+                          >
+                            เปลี่ยนสถานะ
+                          </button>
+                          <button
+                            onClick={() => handleDeleteAppointment(appt.id, appt.queue_number)}
+                            className="px-2 py-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 font-semibold rounded-lg text-[11px] flex items-center space-x-1 border border-rose-500/30"
+                          >
+                            <Trash2 className="w-3 h-3 text-rose-400" />
+                            <span>ลบ</span>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
