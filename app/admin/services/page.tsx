@@ -1,12 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { createClient } from '@/lib/supabase/client';
 import { formatCurrency } from '@/lib/utils/formatters';
 import { Flower2, Plus, Edit2, Clock, Loader2 } from 'lucide-react';
 
 export default function AdminServicesPage() {
-  const supabase = createClient();
   const [services, setServices] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
@@ -27,14 +25,11 @@ export default function AdminServicesPage() {
   async function fetchServices() {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('services')
-        .select('*')
-        .order('price', { ascending: true });
-
-      if (error) throw error;
-      setServices(data || []);
-    } catch (err) {
+      const res = await fetch('/api/admin/services');
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'ไม่สามารถโหลดข้อมูลได้');
+      setServices(json.data || []);
+    } catch (err: any) {
       console.error(err);
     } finally {
       setLoading(false);
@@ -70,6 +65,7 @@ export default function AdminServicesPage() {
     setSaving(true);
     try {
       const payload = {
+        id: editingSrv?.id,
         name,
         description,
         price: parseFloat(price),
@@ -77,13 +73,15 @@ export default function AdminServicesPage() {
         status,
       };
 
-      if (editingSrv) {
-        const { error } = await supabase.from('services').update(payload).eq('id', editingSrv.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from('services').insert(payload);
-        if (error) throw error;
-      }
+      const method = editingSrv ? 'PUT' : 'POST';
+      const res = await fetch('/api/admin/services', {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'ไม่สามารถบันทึกข้อมูลบริการได้');
 
       setShowModal(false);
       fetchServices();
