@@ -63,8 +63,6 @@ export default function LiffBookingPage() {
               if (cust.phone) setPhone(cust.phone);
               if (cust.email) setEmail(cust.email);
             }
-          } else {
-            liff.login();
           }
         }
       } catch (err) {
