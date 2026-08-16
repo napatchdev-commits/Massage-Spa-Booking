@@ -36,13 +36,10 @@ export default function AdminStaffPage() {
   async function fetchStaff() {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('staff')
-        .select('*')
-        .order('created_at', { ascending: true });
-
-      if (error) throw error;
-      setStaffList(data || []);
+      const res = await fetch('/api/admin/staff');
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'ไม่สามารถโหลดข้อมูลได้');
+      setStaffList(json.data || []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -75,44 +72,19 @@ export default function AdminStaffPage() {
     }
     setSaving(true);
     try {
-      if (editingStaff) {
-        // Update
-        const { error } = await supabase
-          .from('staff')
-          .update({ name, nickname, phone, status })
-          .eq('id', editingStaff.id);
-        if (error) throw error;
-      } else {
-        // Insert staff and default weekly schedule (Mon-Sun 09:00-22:00)
-        const { data: newSt, error: insErr } = await supabase
-          .from('staff')
-          .insert({ name, nickname, phone, status })
-          .select()
-          .single();
+      const method = editingStaff ? 'PUT' : 'POST';
+      const body = editingStaff
+        ? { id: editingStaff.id, name, nickname, phone, status }
+        : { name, nickname, phone, status };
 
-        if (insErr) throw insErr;
+      const res = await fetch('/api/admin/staff', {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
 
-        // Auto-generate default schedules 0-6 (Sun-Sat)
-        const defaultSchedules = Array.from({ length: 7 }, (_, i) => ({
-          staff_id: newSt.id,
-          day_of_week: i,
-          work_start_time: '09:00:00',
-          work_end_time: '22:00:00',
-          is_working: true,
-        }));
-
-        await supabase.from('staff_schedules').insert(defaultSchedules);
-
-        // Auto-generate default break 13:00-14:00 for days
-        const defaultBreaks = Array.from({ length: 7 }, (_, i) => ({
-          staff_id: newSt.id,
-          day_of_week: i,
-          break_start_time: '13:00:00',
-          break_end_time: '14:00:00',
-        }));
-
-        await supabase.from('staff_breaks').insert(defaultBreaks);
-      }
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'ไม่สามารถบันทึกข้อมูลเทอราพิสได้');
 
       setShowStaffModal(false);
       fetchStaff();
